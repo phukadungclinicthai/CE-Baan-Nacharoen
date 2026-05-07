@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ระบบบริหารวิสาหกิจชุมชน</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+  :root {
+    --green: #1D9E75; --green-dark: #0F6E56; --green-light: #E1F5EE;
+    --red: #E24B4A; --red-light: #FCEBEB;
+    --amber: #BA7517; --amber-light: #FAEEDA;
+    --blue: #185FA5; --blue-light: #E6F1FB;
+    --gray: #5F5E5A; --gray-light: #F1EFE8;
+    --text: #2C2C2A; --text-muted: #888780;
+    --border: #D3D1C7; --bg: #f7f6f2; --white: #ffffff;
+    --radius: 10px; --radius-sm: 6px;
+    --shadow: 0 2px 12px rgba(0,0,0,0.06);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Sarabun', sans-serif; background: var(--bg); color: var(--text); font-size: 15px; }
+
+  /* Layout */
+  .sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 220px; background: #1a2e22; display: flex; flex-direction: column; z-index: 100; }
+  .sidebar-logo { padding: 24px 20px 16px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .sidebar-logo h1 { font-size: 15px; font-weight: 600; color: #fff; line-height: 1.4; }
+  .sidebar-logo p { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 3px; }
+  .sidebar-logo .logo-icon { width: 36px; height: 36px; background: var(--green); border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; font-size: 18px; }
+  nav { flex: 1; padding: 12px 10px; overflow-y: auto; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm); cursor: pointer; color: rgba(255,255,255,0.55); font-size: 14px; margin-bottom: 2px; transition: all 0.15s; }
+  .nav-item:hover { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.85); }
+  .nav-item.active { background: var(--green); color: #fff; font-weight: 500; }
+  .nav-item i { width: 18px; text-align: center; font-size: 14px; }
+  .sidebar-footer { padding: 12px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 11px; color: rgba(255,255,255,0.3); text-align: center; }
+  .main { margin-left: 220px; min-height: 100vh; }
+  .topbar { background: var(--white); border-bottom: 1px solid var(--border); padding: 14px 28px; display: flex; justify-content: space-between; align-items: center; }
+  .topbar-title { font-size: 17px; font-weight: 600; color: var(--text); }
+  .topbar-date { font-size: 12px; color: var(--text-muted); }
+  .content { padding: 24px 28px; }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* Components */
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+  .stat-card { background: var(--white); border-radius: var(--radius); padding: 18px 20px; border: 1px solid var(--border); box-shadow: var(--shadow); }
+  .stat-card .icon { width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; font-size: 15px; }
+  .stat-card .label { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+  .stat-card .value { font-size: 24px; font-weight: 700; color: var(--text); }
+  .stat-card .sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .card { background: var(--white); border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); margin-bottom: 20px; }
+  .card-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .card-title { font-size: 14px; font-weight: 600; color: var(--text); }
+  .card-body { padding: 0; }
+  .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .section-title { font-size: 16px; font-weight: 600; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--white); cursor: pointer; font-size: 13px; font-family: 'Sarabun', sans-serif; color: var(--text); font-weight: 500; transition: all 0.15s; }
+  .btn:hover { background: var(--gray-light); }
+  .btn.primary { background: var(--green); border-color: var(--green); color: #fff; }
+  .btn.primary:hover { background: var(--green-dark); }
+  .btn.danger { background: var(--red); border-color: var(--red); color: #fff; }
+  .btn.danger:hover { background: #c03c3b; }
+  .btn.sm { padding: 5px 10px; font-size: 12px; }
+  .btn-group { display: flex; gap: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 10px 16px; font-weight: 600; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); background: var(--gray-light); }
+  td { padding: 11px 16px; border-bottom: 1px solid #f0ede8; color: var(--text); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #faf9f6; }
+  .badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge-green { background: var(--green-light); color: var(--green-dark); }
+  .badge-amber { background: var(--amber-light); color: var(--amber); }
+  .badge-red { background: var(--red-light); color: #A32D2D; }
+  .badge-blue { background: var(--blue-light); color: var(--blue); }
+  .income-text { color: var(--green-dark); font-weight: 600; }
+  .expense-text { color: #A32D2D; font-weight: 600; }
+
+  /* Modal */
+  .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 1000; align-items: center; justify-content: center; }
+  .modal-backdrop.open { display: flex; }
+  .modal { background: var(--white); border-radius: var(--radius); padding: 24px; width: 460px; max-width: 95%; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+  .modal-title { font-size: 16px; font-weight: 600; margin-bottom: 20px; color: var(--text); }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-group.full { grid-column: 1 / -1; }
+  label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+  input, select, textarea { padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--white); color: var(--text); font-size: 13px; font-family: 'Sarabun', sans-serif; outline: none; transition: border 0.15s; }
+  input:focus, select:focus { border-color: var(--green); }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+  /* Activity feed */
+  .activity-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px 20px; border-bottom: 1px solid #f0ede8; }
+  .activity-item:last-child { border-bottom: none; }
+  .activity-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+  .activity-text { font-size: 13px; color: var(--text); }
+  .activity-time { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+  /* Report summary bar */
+  .report-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px; }
+  .report-kpi { background: var(--white); border-radius: var(--radius); border: 1px solid var(--border); padding: 20px; text-align: center; box-shadow: var(--shadow); }
+  .report-kpi .kpi-label { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .report-kpi .kpi-value { font-size: 28px; font-weight: 700; }
+  .kpi-green { color: var(--green-dark); }
+  .kpi-red { color: #A32D2D; }
+
+  /* Mini chart */
+  .bar-chart { display: flex; align-items: flex-end; gap: 6px; height: 100px; padding: 0 4px; }
+  .bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .bar { width: 100%; border-radius: 3px 3px 0 0; min-height: 3px; }
+  .bar.inc { background: var(--green); }
+  .bar.exp { background: var(--red); }
+  .bar-lbl { font-size: 9px; color: var(--text-muted); text-align: center; }
+
+  /* Export buttons */
+  .export-bar { display: flex; gap: 8px; align-items: center; }
+  .export-bar span { font-size: 12px; color: var(--text-muted); }
+
+  /* Empty state */
+  .empty { text-align: center; padding: 40px; color: var(--text-muted); font-size: 13px; }
+  .empty i { font-size: 32px; margin-bottom: 10px; display: block; opacity: 0.3; }
+
+  /* Toast */
+  .toast { position: fixed; bottom: 24px; right: 24px; background: #2C2C2A; color: #fff; padding: 12px 18px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; z-index: 9999; opacity: 0; transform: translateY(10px); transition: all 0.3s; pointer-events: none; }
+  .toast.show { opacity: 1; transform: translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">🌾</div>
+    <h1>วิสาหกิจชุมชน<br>บ้านสุขใจ</h1>
+    <p>ระบบบริหารจัดการ</p>
+  </div>
+  <nav>
+    <div class="nav-item active" onclick="showPage('dashboard')" id="nav-dashboard"><i class="fa-solid fa-chart-pie"></i> ภาพรวม</div>
+    <div class="nav-item" onclick="showPage('members')" id="nav-members"><i class="fa-solid fa-users"></i> สมาชิก</div>
+    <div class="nav-item" onclick="showPage('finance')" id="nav-finance"><i class="fa-solid fa-coins"></i> บัญชีรายรับ-จ่าย</div>
+    <div class="nav-item" onclick="showPage('inventory')" id="nav-inventory"><i class="fa-solid fa-boxes-stacked"></i> คลังสินค้า</div>
+    <div class="nav-item" onclick="showPage('report')" id="nav-report"><i class="fa-solid fa-file-chart-column"></i> รายงาน</div>
+  </nav>
+  <div class="sidebar-footer">v1.0 · วิสาหกิจชุมชน</div>
+</div>
+
+<!-- Main -->
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title" id="page-heading">ภาพรวม</div>
+    <div class="topbar-date" id="today-date"></div>
+  </div>
+  <div class="content">
+
+    <!-- Dashboard -->
+    <div class="page active" id="page-dashboard">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="icon" style="background:#E1F5EE"><i class="fa-solid fa-users" style="color:var(--green)"></i></div>
+          <div class="label">สมาชิกทั้งหมด</div>
+          <div class="value" id="s-members">3</div>
+          <div class="sub">คน</div>
+        </div>
+        <div class="stat-card">
+          <div class="icon" style="background:#E1F5EE"><i class="fa-solid fa-arrow-trend-up" style="color:var(--green)"></i></div>
+          <div class="label">รายรับรวม</div>
+          <div class="value income-text" id="s-income">0</div>
+          <div class="sub">บาท</div>
+        </div>
+        <div class="stat-card">
+          <div class="icon" style="background:var(--red-light)"><i class="fa-solid fa-arrow-trend-down" style="color:var(--red)"></i></div>
+          <div class="label">รายจ่ายรวม</div>
+          <div class="value expense-text" id="s-expense">0</div>
+          <div class="sub">บาท</div>
+        </div>
+        <div class="stat-card">
+          <div class="icon" style="background:var(--blue-light)"><i class="fa-solid fa-boxes-stacked" style="color:var(--blue)"></i></div>
+          <div class="label">สินค้าในคลัง</div>
+          <div class="value" id="s-products">0</div>
+          <div class="sub">รายการ</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 320px;gap:16px">
+        <div class="card">
+          <div class="card-header"><div class="card-title">กิจกรรมล่าสุด</div></div>
+          <div class="card-body" id="activity-feed">
+            <div class="empty"><i class="fa-regular fa-clock"></i>ยังไม่มีกิจกรรม</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">กำไร / ขาดทุนสุทธิ</div></div>
+          <div class="card-body" style="padding:20px">
+            <div style="text-align:center;margin-bottom:16px">
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">ยอดสุทธิ</div>
+              <div style="font-size:32px;font-weight:700" id="s-net">0</div>
+              <div style="font-size:12px;color:var(--text-muted)">บาท</div>
+            </div>
+            <div class="bar-chart" id="mini-chart"><div class="empty" style="font-size:11px;padding:0">ยังไม่มีข้อมูล</div></div>
+            <div style="display:flex;gap:12px;justify-content:center;margin-top:8px;font-size:11px;color:var(--text-muted)">
+              <span><span style="display:inline-block;width:8px;height:8px;background:var(--green);border-radius:2px;margin-right:4px"></span>รายรับ</span>
+              <span><span style="display:inline-block;width:8px;height:8px;background:var(--red);border-radius:2px;margin-right:4px"></span>รายจ่าย</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Members -->
+    <div class="page" id="page-members">
+      <div class="section-header">
+        <div class="section-title">รายชื่อสมาชิก</div>
+        <button class="btn primary" onclick="openModal('modal-member')"><i class="fa-solid fa-plus"></i> เพิ่มสมาชิก</button>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          <table><thead><tr><th>#</th><th>ชื่อ-สกุล</th><th>เบอร์โทร</th><th>บทบาท</th><th>วันที่เข้าร่วม</th><th>สถานะ</th><th></th></tr></thead>
+          <tbody id="members-tbody"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Finance -->
+    <div class="page" id="page-finance">
+      <div class="section-header">
+        <div class="section-title">บัญชีรายรับ-รายจ่าย</div>
+        <div class="btn-group">
+          <button class="btn primary" onclick="openTxModal('income')"><i class="fa-solid fa-plus"></i> รายรับ</button>
+          <button class="btn danger" onclick="openTxModal('expense')"><i class="fa-solid fa-minus"></i> รายจ่าย</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          <table><thead><tr><th>วันที่</th><th>รายการ</th><th>ประเภท</th><th>หมวดหมู่</th><th style="text-align:right">จำนวน (บาท)</th><th></th></tr></thead>
+          <tbody id="finance-tbody"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inventory -->
+    <div class="page" id="page-inventory">
+      <div class="section-header">
+        <div class="section-title">คลังสินค้า</div>
+        <button class="btn primary" onclick="openModal('modal-product')"><i class="fa-solid fa-plus"></i> เพิ่มสินค้า</button>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          <table><thead><tr><th>#</th><th>ชื่อสินค้า</th><th>หมวดหมู่</th><th style="text-align:right">ราคา/หน่วย</th><th style="text-align:right">คงเหลือ</th><th>สถานะ</th><th></th></tr></thead>
+          <tbody id="inventory-tbody"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Report -->
+    <div class="page" id="page-report">
+      <div class="section-header">
+        <div class="section-title">รายงานสรุปผลการดำเนินงาน</div>
+        <div class="export-bar">
+          <span>ส่งออก:</span>
+          <button class="btn sm" onclick="exportExcel()"><i class="fa-solid fa-file-excel" style="color:#1D6F42"></i> Excel</button>
+          <button class="btn sm" onclick="exportPDF()"><i class="fa-solid fa-file-pdf" style="color:#E24B4A"></i> PDF</button>
+        </div>
+      </div>
+      <div class="report-summary">
+        <div class="report-kpi"><div class="kpi-label">รายรับรวม</div><div class="kpi-value kpi-green" id="r-income">0</div><div style="font-size:12px;color:var(--text-muted)">บาท</div></div>
+        <div class="report-kpi"><div class="kpi-label">รายจ่ายรวม</div><div class="kpi-value kpi-red" id="r-expense">0</div><div style="font-size:12px;color:var(--text-muted)">บาท</div></div>
+        <div class="report-kpi"><div class="kpi-label">กำไร / ขาดทุนสุทธิ</div><div class="kpi-value" id="r-net" style="color:var(--green-dark)">0</div><div style="font-size:12px;color:var(--text-muted)">บาท</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div class="card">
+          <div class="card-header"><div class="card-title">รายการบัญชีทั้งหมด</div></div>
+          <div class="card-body">
+            <table><thead><tr><th>วันที่</th><th>รายการ</th><th>ประเภท</th><th style="text-align:right">จำนวน (บาท)</th></tr></thead>
+            <tbody id="r-finance-tbody"></tbody></table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">ทะเบียนสมาชิก</div></div>
+          <div class="card-body">
+            <table><thead><tr><th>ชื่อ-สกุล</th><th>บทบาท</th><th>สถานะ</th></tr></thead>
+            <tbody id="r-members-tbody"></tbody></table>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">รายการสินค้าในคลัง</div></div>
+        <div class="card-body">
+          <table><thead><tr><th>ชื่อสินค้า</th><th>หมวดหมู่</th><th style="text-align:right">ราคา (บาท)</th><th style="text-align:right">คงเหลือ</th><th>มูลค่าคงคลัง (บาท)</th></tr></thead>
+          <tbody id="r-inventory-tbody"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Modals -->
+<div class="modal-backdrop" id="modal-member">
+  <div class="modal">
+    <div class="modal-title">เพิ่มสมาชิกใหม่</div>
+    <div class="form-grid">
+      <div class="form-group"><label>ชื่อ</label><input type="text" id="m-fname" placeholder="ชื่อ"></div>
+      <div class="form-group"><label>สกุล</label><input type="text" id="m-lname" placeholder="นามสกุล"></div>
+      <div class="form-group"><label>เบอร์โทร</label><input type="text" id="m-phone" placeholder="0812345678"></div>
+      <div class="form-group"><label>บทบาท</label>
+        <select id="m-role"><option>สมาชิกทั่วไป</option><option>กรรมการ</option><option>ประธาน</option><option>เหรัญญิก</option><option>เลขานุการ</option></select>
+      </div>
+      <div class="form-group"><label>วันที่เข้าร่วม</label><input type="date" id="m-date"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-member')">ยกเลิก</button>
+      <button class="btn primary" onclick="addMember()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modal-tx">
+  <div class="modal">
+    <div class="modal-title" id="tx-title">บันทึกรายรับ</div>
+    <div class="form-grid">
+      <div class="form-group"><label>วันที่</label><input type="date" id="tx-date"></div>
+      <div class="form-group"><label>จำนวนเงิน (บาท)</label><input type="number" id="tx-amount" placeholder="0" min="0"></div>
+      <div class="form-group full"><label>รายการ</label><input type="text" id="tx-desc" placeholder="ระบุรายการ"></div>
+      <div class="form-group"><label>หมวดหมู่</label>
+        <select id="tx-cat">
+          <option>ขายสินค้า</option><option>บริการ</option><option>ทุนสนับสนุน</option>
+          <option>วัตถุดิบ</option><option>ค่าแรง</option><option>ค่าดำเนินการ</option><option>อื่น ๆ</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-tx')">ยกเลิก</button>
+      <button class="btn primary" onclick="addTransaction()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modal-product">
+  <div class="modal">
+    <div class="modal-title">เพิ่มสินค้า</div>
+    <div class="form-grid">
+      <div class="form-group full"><label>ชื่อสินค้า</label><input type="text" id="p-name" placeholder="เช่น ข้าวสารหอมมะลิ"></div>
+      <div class="form-group"><label>หมวดหมู่</label>
+        <select id="p-cat"><option>ผลิตผลการเกษตร</option><option>อาหารแปรรูป</option><option>สมุนไพร</option><option>หัตถกรรม</option><option>อื่น ๆ</option></select>
+      </div>
+      <div class="form-group"><label>หน่วย</label><input type="text" id="p-unit" placeholder="กก. / ชิ้น / ขวด"></div>
+      <div class="form-group"><label>ราคา/หน่วย (บาท)</label><input type="number" id="p-price" placeholder="0" min="0"></div>
+      <div class="form-group"><label>จำนวนคงเหลือ</label><input type="number" id="p-qty" placeholder="0" min="0"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-product')">ยกเลิก</button>
+      <button class="btn primary" onclick="addProduct()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var members = [
+  {name:'นายสมชาย ดีใจ', phone:'081-111-1111', role:'ประธาน', date:'2024-01-15', status:'active'},
+  {name:'นางมาลี สุขสันต์', phone:'082-222-2222', role:'เหรัญญิก', date:'2024-01-15', status:'active'},
+  {name:'นายวิชัย มั่นคง', phone:'083-333-3333', role:'กรรมการ', date:'2024-02-01', status:'active'},
+];
+var transactions = [];
+var products = [];
+var activity = [];
+var txType = 'income';
+
+function fmt(n){return Number(n).toLocaleString('th-TH',{minimumFractionDigits:0});}
+function fmtDate(d){if(!d)return'-';var p=d.split('-');return p[2]+'/'+p[1]+'/'+p[0];}
+function today(){return new Date().toISOString().split('T')[0];}
+function showToast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.getElementById('nav-'+id).classList.add('active');
+  var titles={dashboard:'ภาพรวม',members:'ทะเบียนสมาชิก',finance:'บัญชีรายรับ-รายจ่าย',inventory:'คลังสินค้า',report:'รายงานสรุปผล'};
+  document.getElementById('page-heading').textContent=titles[id]||'';
+  if(id==='report')renderReport();
+}
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+function openTxModal(type){txType=type;document.getElementById('tx-title').textContent=type==='income'?'บันทึกรายรับ':'บันทึกรายจ่าย';document.getElementById('tx-date').value=today();openModal('modal-tx');}
+
+function addMember(){
+  var fn=document.getElementById('m-fname').value.trim();
+  var ln=document.getElementById('m-lname').value.trim();
+  if(!fn||!ln){alert('กรุณากรอกชื่อ-สกุล');return;}
+  var m={name:'คุณ'+fn+' '+ln,phone:document.getElementById('m-phone').value||'-',role:document.getElementById('m-role').value,date:document.getElementById('m-date').value||today(),status:'active'};
+  members.push(m);
+  activity.unshift({text:'เพิ่มสมาชิก: '+m.name+' ('+m.role+')',color:'var(--green)',time:new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})});
+  ['m-fname','m-lname','m-phone'].forEach(id=>document.getElementById(id).value='');
+  renderMembers();closeModal('modal-member');updateStats();renderActivity();showToast('เพิ่มสมาชิกเรียบร้อย ✓');
+}
+function deleteMember(i){if(!confirm('ลบสมาชิก '+members[i].name+'?'))return;activity.unshift({text:'ลบสมาชิก: '+members[i].name,color:'var(--red)',time:new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})});members.splice(i,1);renderMembers();updateStats();renderActivity();showToast('ลบสมาชิกแล้ว');}
+
+function addTransaction(){
+  var am=parseFloat(document.getElementById('tx-amount').value)||0;
+  var ds=document.getElementById('tx-desc').value.trim();
+  if(!am||!ds){alert('กรุณากรอกข้อมูลให้ครบ');return;}
+  var t={type:txType,amount:am,desc:ds,date:document.getElementById('tx-date').value||today(),cat:document.getElementById('tx-cat').value};
+  transactions.unshift(t);
+  activity.unshift({text:(txType==='income'?'รายรับ':'รายจ่าย')+': '+ds+' ฿'+fmt(am),color:txType==='income'?'var(--green)':'var(--red)',time:new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})});
+  document.getElementById('tx-amount').value='';document.getElementById('tx-desc').value='';
+  renderFinance();closeModal('modal-tx');updateStats();renderActivity();showToast('บันทึกรายการแล้ว ✓');
+}
+function deleteTx(i){transactions.splice(i,1);renderFinance();updateStats();showToast('ลบรายการแล้ว');}
+
+function addProduct(){
+  var nm=document.getElementById('p-name').value.trim();
+  if(!nm){alert('กรุณากรอกชื่อสินค้า');return;}
+  var p={name:nm,cat:document.getElementById('p-cat').value,unit:document.getElementById('p-unit').value||'ชิ้น',price:parseFloat(document.getElementById('p-price').value)||0,qty:parseInt(document.getElementById('p-qty').value)||0};
+  products.unshift(p);
+  activity.unshift({text:'เพิ่มสินค้า: '+nm+' จำนวน '+p.qty+' '+p.unit,color:'var(--blue)',time:new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})});
+  ['p-name','p-unit','p-price','p-qty'].forEach(id=>document.getElementById(id).value='');
+  renderInventory();closeModal('modal-product');updateStats();renderActivity();showToast('เพิ่มสินค้าแล้ว ✓');
+}
+function deleteProduct(i){products.splice(i,1);renderInventory();updateStats();showToast('ลบสินค้าแล้ว');}
+
+function renderMembers(){
+  var tb=document.getElementById('members-tbody');
+  if(!members.length){tb.innerHTML='<tr><td colspan="7"><div class="empty"><i class="fa-solid fa-users"></i>ยังไม่มีสมาชิก</div></td></tr>';return;}
+  tb.innerHTML=members.map((m,i)=>`<tr><td>${i+1}</td><td><strong>${m.name}</strong></td><td>${m.phone}</td><td><span class="badge badge-blue">${m.role}</span></td><td>${fmtDate(m.date)}</td><td><span class="badge badge-green">ใช้งาน</span></td><td><button class="btn sm" onclick="deleteMember(${i})"><i class="fa-solid fa-trash" style="color:var(--red)"></i></button></td></tr>`).join('');
+}
+
+function renderFinance(){
+  var tb=document.getElementById('finance-tbody');
+  if(!transactions.length){tb.innerHTML='<tr><td colspan="6"><div class="empty"><i class="fa-solid fa-coins"></i>ยังไม่มีรายการ</div></td></tr>';return;}
+  tb.innerHTML=transactions.map((t,i)=>`<tr><td>${fmtDate(t.date)}</td><td>${t.desc}</td><td>${t.type==='income'?'<span class="badge badge-green">รายรับ</span>':'<span class="badge badge-red">รายจ่าย</span>'}</td><td>${t.cat}</td><td style="text-align:right" class="${t.type==='income'?'income-text':'expense-text'}">${t.type==='income'?'+':'-'}${fmt(t.amount)}</td><td><button class="btn sm" onclick="deleteTx(${i})"><i class="fa-solid fa-trash" style="color:var(--red)"></i></button></td></tr>`).join('');
+}
+
+function renderInventory(){
+  var tb=document.getElementById('inventory-tbody');
+  if(!products.length){tb.innerHTML='<tr><td colspan="7"><div class="empty"><i class="fa-solid fa-boxes-stacked"></i>ยังไม่มีสินค้า</div></td></tr>';return;}
+  tb.innerHTML=products.map((p,i)=>{
+    var badge=p.qty>10?'<span class="badge badge-green">ปกติ</span>':p.qty>0?'<span class="badge badge-amber">ใกล้หมด</span>':'<span class="badge badge-red">หมดแล้ว</span>';
+    return `<tr><td>${i+1}</td><td><strong>${p.name}</strong></td><td>${p.cat}</td><td style="text-align:right">${fmt(p.price)}</td><td style="text-align:right">${p.qty} ${p.unit}</td><td>${badge}</td><td><button class="btn sm" onclick="deleteProduct(${i})"><i class="fa-solid fa-trash" style="color:var(--red)"></i></button></td></tr>`;
+  }).join('');
+}
+
+function renderActivity(){
+  var el=document.getElementById('activity-feed');
+  if(!activity.length){el.innerHTML='<div class="empty"><i class="fa-regular fa-clock"></i>ยังไม่มีกิจกรรม</div>';return;}
+  el.innerHTML=activity.slice(0,8).map(a=>`<div class="activity-item"><div class="activity-dot" style="background:${a.color}"></div><div><div class="activity-text">${a.text}</div><div class="activity-time">${a.time}</div></div></div>`).join('');
+}
+
+function updateStats(){
+  var inc=transactions.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+  var exp=transactions.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
+  var net=inc-exp;
+  document.getElementById('s-members').textContent=members.length;
+  document.getElementById('s-income').textContent=fmt(inc);
+  document.getElementById('s-expense').textContent=fmt(exp);
+  document.getElementById('s-products').textContent=products.length;
+  var netEl=document.getElementById('s-net');
+  netEl.textContent=fmt(net);
+  netEl.style.color=net>=0?'var(--green-dark)':'#A32D2D';
+  renderMiniChart(inc,exp);
+}
+
+function renderMiniChart(inc,exp){
+  var el=document.getElementById('mini-chart');
+  if(!inc&&!exp){el.innerHTML='<div class="empty" style="font-size:11px;padding:0">ยังไม่มีข้อมูล</div>';return;}
+  var max=Math.max(inc,exp)||1;
+  var ih=Math.round((inc/max)*90);
+  var eh=Math.round((exp/max)*90);
+  el.innerHTML=`<div class="bar-wrap"><div class="bar inc" style="height:${ih}px"></div><div class="bar-lbl">รับ</div></div><div class="bar-wrap"><div class="bar exp" style="height:${eh}px"></div><div class="bar-lbl">จ่าย</div></div>`;
+}
+
+function renderReport(){
+  var inc=transactions.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+  var exp=transactions.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
+  var net=inc-exp;
+  document.getElementById('r-income').textContent=fmt(inc);
+  document.getElementById('r-expense').textContent=fmt(exp);
+  var ne=document.getElementById('r-net');
+  ne.textContent=fmt(net);ne.style.color=net>=0?'var(--green-dark)':'#A32D2D';
+  var rf=document.getElementById('r-finance-tbody');
+  rf.innerHTML=transactions.length?transactions.map(t=>`<tr><td>${fmtDate(t.date)}</td><td>${t.desc}</td><td>${t.type==='income'?'<span class="badge badge-green">รายรับ</span>':'<span class="badge badge-red">รายจ่าย</span>'}</td><td style="text-align:right" class="${t.type==='income'?'income-text':'expense-text'}">${t.type==='income'?'+':'-'}${fmt(t.amount)}</td></tr>`).join(''):'<tr><td colspan="4" class="empty">ยังไม่มีรายการ</td></tr>';
+  var rm=document.getElementById('r-members-tbody');
+  rm.innerHTML=members.length?members.map(m=>`<tr><td>${m.name}</td><td>${m.role}</td><td><span class="badge badge-green">ใช้งาน</span></td></tr>`).join(''):'<tr><td colspan="3" class="empty">ยังไม่มีสมาชิก</td></tr>';
+  var ri=document.getElementById('r-inventory-tbody');
+  ri.innerHTML=products.length?products.map(p=>`<tr><td>${p.name}</td><td>${p.cat}</td><td style="text-align:right">${fmt(p.price)}</td><td style="text-align:right">${p.qty} ${p.unit}</td><td style="text-align:right">${fmt(p.price*p.qty)}</td></tr>`).join(''):'<tr><td colspan="5" class="empty">ยังไม่มีสินค้า</td></tr>';
+}
+
+function exportExcel(){
+  var wb=XLSX.utils.book_new();
+  // Sheet 1: Summary
+  var sumData=[
+    ['รายงานสรุปผลการดำเนินงาน — วิสาหกิจชุมชนบ้านสุขใจ'],
+    ['วันที่ออกรายงาน', new Date().toLocaleDateString('th-TH')],[''],
+    ['สรุปการเงิน'],
+    ['รายรับรวม (บาท)', transactions.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0)],
+    ['รายจ่ายรวม (บาท)', transactions.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0)],
+    ['กำไร/ขาดทุนสุทธิ (บาท)', transactions.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0)-transactions.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0)],
+    ['จำนวนสมาชิก', members.length],['จำนวนรายการสินค้า', products.length],
+  ];
+  var s1=XLSX.utils.aoa_to_sheet(sumData);s1['!cols']=[{wch:30},{wch:20}];
+  XLSX.utils.book_append_sheet(wb,s1,'สรุปผล');
+  // Sheet 2: Finance
+  var finRows=[['วันที่','รายการ','ประเภท','หมวดหมู่','จำนวน (บาท)'],...transactions.map(t=>[fmtDate(t.date),t.desc,t.type==='income'?'รายรับ':'รายจ่าย',t.cat,t.type==='income'?t.amount:-t.amount])];
+  var s2=XLSX.utils.aoa_to_sheet(finRows);s2['!cols']=[{wch:14},{wch:30},{wch:10},{wch:16},{wch:16}];
+  XLSX.utils.book_append_sheet(wb,s2,'บัญชีรายรับ-จ่าย');
+  // Sheet 3: Members
+  var memRows=[['#','ชื่อ-สกุล','เบอร์โทร','บทบาท','วันที่เข้าร่วม','สถานะ'],...members.map((m,i)=>[i+1,m.name,m.phone,m.role,fmtDate(m.date),'ใช้งาน'])];
+  var s3=XLSX.utils.aoa_to_sheet(memRows);s3['!cols']=[{wch:5},{wch:25},{wch:15},{wch:15},{wch:14},{wch:10}];
+  XLSX.utils.book_append_sheet(wb,s3,'ทะเบียนสมาชิก');
+  // Sheet 4: Inventory
+  var invRows=[['#','ชื่อสินค้า','หมวดหมู่','หน่วย','ราคา/หน่วย','คงเหลือ','มูลค่าคงคลัง'],...products.map((p,i)=>[i+1,p.name,p.cat,p.unit,p.price,p.qty,p.price*p.qty])];
+  var s4=XLSX.utils.aoa_to_sheet(invRows);s4['!cols']=[{wch:5},{wch:25},{wch:16},{wch:8},{wch:12},{wch:10},{wch:16}];
+  XLSX.utils.book_append_sheet(wb,s4,'คลังสินค้า');
+  XLSX.writeFile(wb,'รายงานวิสาหกิจชุมชน_'+new Date().toISOString().slice(0,10)+'.xlsx');
+  showToast('ส่งออก Excel เรียบร้อย ✓');
+}
+
+function exportPDF(){
+  const {jsPDF}=window.jspdf;
+  var doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  var inc=transactions.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+  var exp=transactions.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
+  var net=inc-exp;
+  var pageW=210;var margin=18;
+
+  // Header bar
+  doc.setFillColor(29,158,117);doc.rect(0,0,pageW,28,'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(16);doc.setFont('helvetica','bold');
+  doc.text('COMMUNITY ENTERPRISE REPORT',margin,12);
+  doc.setFontSize(9);doc.setFont('helvetica','normal');
+  doc.text('Baan Sukjai Community Enterprise  |  Management System',margin,20);
+  doc.text('Date: '+new Date().toLocaleDateString('en-GB'),pageW-margin,20,{align:'right'});
+
+  var y=38;
+  // KPI boxes
+  var boxes=[['TOTAL INCOME',fmt(inc)+' THB','29,158,117'],['TOTAL EXPENSE',fmt(exp)+' THB','226,75,74'],['NET PROFIT',fmt(net)+' THB', net>=0?'15,110,86':'163,45,45']];
+  var bw=54;var gap=6;var bx=margin;
+  boxes.forEach(b=>{
+    var rgb=b[2].split(',').map(Number);
+    doc.setFillColor(245,250,247);doc.setDrawColor(...rgb);doc.setLineWidth(0.5);
+    doc.roundedRect(bx,y,bw,22,2,2,'FD');
+    doc.setTextColor(...rgb);doc.setFontSize(7);doc.setFont('helvetica','bold');
+    doc.text(b[0],bx+bw/2,y+8,{align:'center'});
+    doc.setFontSize(12);doc.text(b[1],bx+bw/2,y+17,{align:'center'});
+    bx+=bw+gap;
+  });
+  y+=30;
+
+  // Finance table
+  doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(44,44,42);
+  doc.text('FINANCIAL TRANSACTIONS',margin,y);y+=4;
+  doc.setDrawColor(209,209,199);doc.setLineWidth(0.3);doc.line(margin,y,pageW-margin,y);y+=4;
+  if(transactions.length){
+    doc.autoTable({startY:y,margin:{left:margin,right:margin},
+      head:[['Date','Description','Type','Category','Amount (THB)']],
+      body:transactions.map(t=>[fmtDate(t.date),t.desc,t.type==='income'?'Income':'Expense',t.cat,(t.type==='income'?'+':'-')+fmt(t.amount)]),
+      styles:{fontSize:8,cellPadding:3,font:'helvetica'},
+      headStyles:{fillColor:[29,158,117],textColor:255,fontStyle:'bold',fontSize:8},
+      alternateRowStyles:{fillColor:[245,250,247]},
+      columnStyles:{0:{cellWidth:22},1:{cellWidth:60},2:{cellWidth:18},3:{cellWidth:30},4:{cellWidth:28,halign:'right'}},
+    });
+    y=doc.lastAutoTable.finalY+8;
+  } else {y+=6;doc.setFontSize(8);doc.setTextColor(136,135,128);doc.text('No transactions recorded.',margin,y);y+=10;}
+
+  // Members table
+  doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(44,44,42);
+  doc.text('MEMBER REGISTRY',margin,y);y+=4;
+  doc.setDrawColor(209,209,199);doc.line(margin,y,pageW-margin,y);y+=4;
+  if(members.length){
+    doc.autoTable({startY:y,margin:{left:margin,right:margin},
+      head:[['#','Name','Phone','Role','Joined','Status']],
+      body:members.map((m,i)=>[i+1,m.name,m.phone,m.role,fmtDate(m.date),'Active']),
+      styles:{fontSize:8,cellPadding:3},
+      headStyles:{fillColor:[24,95,165],textColor:255,fontStyle:'bold',fontSize:8},
+      alternateRowStyles:{fillColor:[230,241,251]},
+    });
+    y=doc.lastAutoTable.finalY+8;
+  }
+
+  // Inventory table
+  if(products.length){
+    doc.addPage();
+    doc.setFillColor(29,158,117);doc.rect(0,0,pageW,12,'F');
+    doc.setTextColor(255,255,255);doc.setFontSize(9);doc.setFont('helvetica','bold');
+    doc.text('INVENTORY REPORT — Baan Sukjai Community Enterprise',margin,8);
+    y=22;
+    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(44,44,42);
+    doc.text('PRODUCT INVENTORY',margin,y);y+=4;
+    doc.setDrawColor(209,209,199);doc.line(margin,y,pageW-margin,y);y+=4;
+    doc.autoTable({startY:y,margin:{left:margin,right:margin},
+      head:[['#','Product Name','Category','Unit','Price (THB)','Stock','Value (THB)']],
+      body:products.map((p,i)=>[i+1,p.name,p.cat,p.unit,fmt(p.price),p.qty,fmt(p.price*p.qty)]),
+      styles:{fontSize:8,cellPadding:3},
+      headStyles:{fillColor:[29,158,117],textColor:255,fontStyle:'bold',fontSize:8},
+      alternateRowStyles:{fillColor:[225,245,238]},
+      columnStyles:{4:{halign:'right'},5:{halign:'right'},6:{halign:'right'}},
+    });
+    y=doc.lastAutoTable.finalY+8;
+    var totalVal=products.reduce((s,p)=>s+p.price*p.qty,0);
+    doc.setFontSize(9);doc.setFont('helvetica','bold');doc.setTextColor(44,44,42);
+    doc.text('Total Inventory Value: '+fmt(totalVal)+' THB',pageW-margin,y,{align:'right'});
+  }
+
+  // Footer on all pages
+  var total=doc.internal.getNumberOfPages();
+  for(var i=1;i<=total;i++){
+    doc.setPage(i);
+    doc.setFillColor(245,250,247);doc.rect(0,287,pageW,10,'F');
+    doc.setFontSize(7);doc.setTextColor(136,135,128);doc.setFont('helvetica','normal');
+    doc.text('Baan Sukjai Community Enterprise Management System',margin,293);
+    doc.text('Page '+i+' of '+total,pageW-margin,293,{align:'right'});
+  }
+  doc.save('รายงานวิสาหกิจชุมชน_'+new Date().toISOString().slice(0,10)+'.pdf');
+  showToast('ส่งออก PDF เรียบร้อย ✓');
+}
+
+// Init
+document.getElementById('today-date').textContent=new Date().toLocaleDateString('th-TH',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+var d=document.getElementById('m-date');if(d)d.value=today();
+renderMembers();renderFinance();renderInventory();updateStats();renderActivity();
+</script>
+</body>
+</html>
